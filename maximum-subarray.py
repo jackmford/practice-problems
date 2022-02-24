@@ -8,8 +8,7 @@ class Solution:
 
       for num in nums:
         cur_total += num
-        if maximum < cur_total:
-          maximum = cur_total
+        maximum = max(maximum, cur_total)
         if cur_total < 0:
           cur_total = 0 
 
