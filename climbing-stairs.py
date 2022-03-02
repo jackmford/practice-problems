@@ -14,4 +14,4 @@ class Solution:
       return second
 
 sol = Solution()
-print(sol.climbStairs(2))
+print(sol.climbStairs(5))
