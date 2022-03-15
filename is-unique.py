@@ -15,6 +15,18 @@ def set_approach(chars):
   else:
     return False
 
+def dict_approach(chars):
+  char_dict = {}
+  for char in chars:
+    char_dict[char] = 0
+
+  for char in chars:
+    char_dict[char]+=1
+    if char_dict[char] > 1:
+      return False
+
+  return True
+
 result = brute_force('aabcdefg')
 if result is False:
   print("Not all unique.")
@@ -22,6 +34,12 @@ else:
   print("All unique.")
 
 result = set_approach('abcdefgg')
+if result is True:
+  print("All unique.")
+else:
+  print("Not all unique.")
+
+result = dict_approach('abccddefg')
 if result is True:
   print("All unique.")
 else:
