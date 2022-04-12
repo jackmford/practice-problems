@@ -16,4 +16,4 @@ class Solution:
     return True
 
 sol = Solution()
-sol.isAnagram('hi', 'ih')
+sol.isAnagram('hi', 'ihjasdf')
