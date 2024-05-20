@@ -5,6 +5,8 @@ An Anagram is a word or phrase formed by rearranging the letters of a different 
 """
 
 from collections import defaultdict
+
+
 class Solution:
     def isAnagram(self, s: str, t: str) -> bool:
         if len(s) != len(t):
@@ -16,10 +18,11 @@ class Solution:
         for char in t:
             dd[char] += 1
 
-        for k,v in d.items():
+        for k, _ in d.items():
             if d[k] != dd[k]:
                 return False
         return True
+
 
 sol = Solution()
 print(sol.isAnagram("anagram", "nagaram"))
