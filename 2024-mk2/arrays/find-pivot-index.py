@@ -12,17 +12,18 @@ from typing import List
 class Solution:
     def pivotIndex(self, nums: List[int]) -> int:
         prefix = [0]*len(nums)
-        postfix = [0]*len(nums) 
+        postfix = [0]*len(nums)
+        pref = 0
+        for i in range(1,len(nums)):
+            pref += nums[i-1]
+            prefix[i] = pref
+        print(prefix)
 
-        prefixctr = 0
-        for i in range(1, len(nums)):
-            prefixctr += nums[i-1]
-            prefix[i] = prefixctr
-
-        postfixctr = 0 
+        post = 0
         for i in range(len(nums)-2, -1, -1):
-            postfixctr += nums[i+1]
-            postfix[i] = postfixctr
+            post += nums[i+1]
+            postfix[i] = post
+
 
         for i in range(len(prefix)):
             if prefix[i] == postfix[i]:
