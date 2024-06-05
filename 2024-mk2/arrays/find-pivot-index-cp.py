@@ -11,27 +11,28 @@ Return the leftmost pivot index. If no such index exists, return -1.
 from typing import List
 class Solution:
     def pivotIndex(self, nums: List[int]) -> int:
-        prefix = [0]*len(nums)
-        postfix = [0]*len(nums)
+        prefix = [0] * len(nums)
+        postfix = [0] * len(nums)
         pref = 0
-        for i in range(1,len(nums)):
-            pref += nums[i-1]
+        for i, n in enumerate(nums):
+            pref = n + pref
             prefix[i] = pref
-        print(prefix)
 
         post = 0
-        for i in range(len(nums)-2, -1, -1):
-            post += nums[i+1]
+        for i in range(len(nums)-1, -1, -1):
+            post = nums[i] + post
             postfix[i] = post
 
-
+        print(prefix)
+        print(postfix)
         for i in range(len(prefix)):
             if prefix[i] == postfix[i]:
+                if i == 0 or i == len(prefix)-1:
+                    return 0
                 return i
-
+        
         return -1
 
 sol = Solution()
-sol.pivotIndex([1,7,3,6,5,6])
 print(sol.pivotIndex([1,7,3,6,5,6]))
 
