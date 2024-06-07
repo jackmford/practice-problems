@@ -4,24 +4,19 @@ Given a string s, return true if the s can be palindrome after deleting at most 
 
 class Solution:
     def validPalindrome(self, s: str) -> bool:
-        delete = 0
-        l,r = 0, len(s)-1
+        l, r = 0, len(s)-1
 
-        while l<=r: 
+        while l<r:
             if s[l] != s[r]:
-                if s[l+1:r+1] == s[l+1:r+1][::-1]:
-                    l+=1
+                if s[l+1:r+1] == s[l+1:r+1][::-1] or s[l:r] == s[l:r][::-1]:
+                    return True
                 else:
-                    r-=1
-                delete += 1
+                    return False
             else:
-                l += 1
-                r -= 1
-            if delete > 1:
-                return False
+                l+=1
+                r-=1
 
         return True
-
 
         
 sol = Solution()
