@@ -10,21 +10,23 @@ from typing import List
 
 class Solution:
     def isMonotonic(self, nums: List[int]) -> bool:
+        # Check increasing
         increasing = True
-        # Check monotone increasing
         for i in range(len(nums)-1):
-            if nums[i] > nums[i+1]:
+            if nums[i+1] < nums[i]:
                 increasing = False
 
+        # Check decreasing
         decreasing = True
-        # Check monotone decreasing
         for i in range(len(nums)-1):
-            if nums[i] < nums[i+1]:
+            if nums[i+1] > nums[i]:
                 decreasing = False
 
-        if increasing == True or decreasing == True:
-            return True
-        return False
+        if decreasing == False and increasing == False:
+            return False
+        return True
+
+
 
 sol = Solution()
 print(sol.isMonotonic([1,2,2,3]))
