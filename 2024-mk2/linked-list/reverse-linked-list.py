@@ -13,7 +13,7 @@ class ListNode:
 class Solution:
     def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:
         cur = None
-        while head.next != None:
+        while head != None:
             tmp = head.next
             head.next = cur
             head = tmp
