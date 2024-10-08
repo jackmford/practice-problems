@@ -17,14 +17,19 @@ func (g *Graph) AddEdge(u, v int) {
 }
 
 func (g *Graph) DFS(start int, visited map[int]bool) {
-  visited[start] = true
+  // DFS can use stack, but we will use recursion here
+  // If NEIGHBOR node is not visited, call function
+  // Mark start node as visited, process it, and check it's neighbors
 
+  visited[start] = true
   fmt.Println(start)
+
   for _, neighbor := range g.vertices[start] {
     if !visited[neighbor] {
       g.DFS(neighbor, visited)
     }
   }
+
 }
 
 func main() {
