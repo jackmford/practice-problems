@@ -2,39 +2,42 @@ package main
 
 import "fmt"
 
-func maxProfit(prices []int) int {
-  // Initialize left and right pointers 
-  left, right := 0, 1
+type DataPt struct {
+  buy int;
+  sell int;
+  profit int;
+}
 
-  // Initialize maxProfit
-  maxProfit := 0
+func maxProfit(prices []int, dp *DataPt) int {
+  l, r := 0, 1
 
-  // Go through the prices array
-  for right < len(prices) {
-    // If the right pointer value is less than left, move left to right to buy on that day
-    if prices[right] < prices[left] {
-      left = right
-      right++
+  for r < len(prices) {
+    if prices[r] < prices[l] {
+      l = r
+      r++
       continue
     }
-
-    // Continue moving right pointer and testing for max profit
-    tmpProfit := prices[right] - prices[left]
-    if tmpProfit > maxProfit {
-      maxProfit = tmpProfit
+    tmp := prices[r] - prices[l]
+    if tmp > dp.profit {
+      dp.profit = tmp
+      dp.buy = l
+      dp.sell = r
     }
-
-    right++
+    r++
   }
+  fmt.Println(dp.buy)
+  fmt.Println(dp.sell)
 
-  return maxProfit
+  return dp.profit
 }
 
 func main() {
+  dp := &DataPt{0, 1, 0}
   prices := []int{7, 1, 5, 3, 6, 4}
-  prices2 := []int{7, 6, 4, 3, 1}
+  fmt.Println(maxProfit(prices, dp))
 
-  fmt.Println(maxProfit(prices))
-  fmt.Println(maxProfit(prices2))
+  dp = &DataPt{0, 1, 0}
+  prices2 := []int{7, 6, 4, 3, 1}
+  fmt.Println(maxProfit(prices2, dp))
 
 }

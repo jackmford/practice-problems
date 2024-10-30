@@ -17,6 +17,17 @@ func (g *Graph) AddEdge(u, v int) {
 }
 
 func (g *Graph) DFS(start int, visited map[int]bool) {
+  if visited[start] {
+    return
+  }
+  
+  visited[start] = true
+
+  fmt.Println(start)
+
+  for _, neighbor := range g.vertices[start] {
+    g.DFS(neighbor, visited)
+  }
 }
 
 func main() {
