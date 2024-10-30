@@ -4,7 +4,7 @@ import "fmt"
 
 func containsNearbyDuplicate(nums []int, k int) bool {
   // Initialize window, window size must be <= k
-  left, right := 0, 1
+  left, right := 0, 0
   keepTrack := map[int]bool{}
 
   // Iterate through windows checking condition

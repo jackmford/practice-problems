@@ -18,30 +18,28 @@ func (g *Graph) AddEdge(u, v int) {
 }
 
 func (g *Graph) BFS(start int) {
-
-  // BFS uses a queue, initialize and add first element
-  // Need a way to keep track of visited
-  // While the queue has items, look at neighbors, visit if they aren't visited and add to queue
-
+  // create a visited map
   visited := make(map[int]bool)
-  queue := []int{start}
-  visited[start] = true
 
-  for len(queue) > 0 {
-    cur := queue[0]
-    queue = queue[1:]
+  // create a queue
+  q := []int{}
+  q = append(q, start)
+  // while the queue is not empty, get current node
+  for len(q) > 0 {
+    cur := q[0]
+    q = q[1:]
 
-    fmt.Printf("%d ", cur)
+    fmt.Println(cur)
+    visited[cur] = true
 
     for _, neighbor := range g.vertices[cur] {
       if !visited[neighbor] {
-        queue = append(queue, neighbor)
-        visited[neighbor] = true
+        q = append(q, neighbor)
       }
     }
-
   }
 
+  // loop it's neighbors, if they aren't visited add them and visit them
 }
 
 func main() {
