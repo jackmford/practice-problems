@@ -5,19 +5,7 @@ import "fmt"
 func BinarySearch(arr []int, target int) int {
   // Declare left and right pointers
   // Begin dividing the sorted array until the middle node becomes target
-  left, right := 0, len(arr)-1
-
-  for left <= right {
-    middle := left + (right-left) / 2
-    if arr[middle] == target {
-      return middle
-    } else if arr[middle] < target {
-      left = middle + 1
-    } else {
-      right = middle -1
-    }
-  }
-  return -1
+  left, right := 0, len(arr)
 }
 
 func main() {
