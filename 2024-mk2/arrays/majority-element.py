@@ -15,7 +15,8 @@ class Solution:
                 count += 1
             elif n != res:
                 count -=1
-            count +=1
+            else:
+                count +=1
 
         return res
 
