@@ -1,39 +1,31 @@
+def isPalindrome(word):
+    i, j = 0, len(word)-1
+    while i<=j:
+        if word[i]!=word[j]:
+            return False
+        i+=1
+        j-=1
+    return True
+    
 class Solution:
-    def isPalindrome(self, word):
-        i = 0
-        j = len(word)-1
-        while i < j:
-            if word[i] != word[j]:
-                return False
-            i+=1
-            j-=1
-        return True
-
     def partition(self, s: str) -> List[List[str]]:
-        
+
+        # All parts of the string must be present in the partition
+
         res = []
-        partition = []
-
-        def dfs(start):
-            nonlocal partition
-            # If i == len S we checked all combos for that character
-            if start >= len(s):
-                res.append(partition[:])
+        currentPart = []
+        def dfs(currentIdx):
+            # Base case is our idx reached end of s
+            if currentIdx == len(s):
+                # Copy
+                res.append(currentPart[:])
                 return
-
-
-            # If there is a substring, check next character
-            for end in range(start, len(s)):
-                # Second number (j) is not inclusive
-                print(start, end)
-                slicey = s[start:end+1]
-                if self.isPalindrome(slicey):
-                    partition.append(slicey)
-                    dfs(end+1)
-                    partition.pop()
-
-
             
+            for end in range(currentIdx, len(s)):
+                print(s[currentIdx:end+1], isPalindrome(s[currentIdx:end+1]))
+                if isPalindrome(s[currentIdx:end+1]):
+                    currentPart.append(s[currentIdx:end+1])
+                    dfs(end+1)
+                    currentPart.pop()
         dfs(0)
-        return res 
-
+        return res
