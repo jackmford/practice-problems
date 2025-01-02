@@ -2,13 +2,12 @@ class TrieNode:
     def __init__(self):
         self.children = {}
         self.end = False
-
+        
 class WordDictionary:
     def __init__(self):
         self.root = TrieNode()
 
     def addWord(self, word: str) -> None:
-        # For every character, create a TrieNode, add it to root's children
         cur = self.root
         for c in word:
             if c not in cur.children:
@@ -17,29 +16,30 @@ class WordDictionary:
         cur.end = True
 
     def search(self, word: str) -> bool:
-        def dfs(i, root):
-            cur = root
-            # From where we are to the end of the word check if it is valid
-            # I is where we're starting, J is where we are
+
+        def searchFromLocation(i, cur):
             for j in range(i, len(word)):
-                c = word[j]
-                print(c)
-                # If we encounter a "."
-                if c == ".":
-                    # Pass every child trienode into function to try for validity
-                    for child in cur.children.values():
-                        # Move past the "." and check validation on child
-                        # Call from where we are onward (using I here is where we started)
-                        valid = dfs(j+1, child)
+                print(word[j])
+                if word[j] == ".":
+                    # If found "." need to check all cur's children for matching char
+                    for child in cur.children:
+                        valid = searchFromLocation(j+1,cur.children[child])
                         if valid:
                             return True
-                    # Not valid after "."
+
+                    # There are no more children but "." is still present, there can't possibly be a match.
                     return False
                 else:
-                    if c not in cur.children:
+                    if word[j] not in cur.children:
                         return False
-                    cur = cur.children[c]
+                    cur = cur.children[word[j]] 
             return cur.end
+            
+        return searchFromLocation(0, self.root)
+        
 
-        return dfs(0, self.root)
 
+# Your WordDictionary object will be instantiated and called as such:
+# obj = WordDictionary()
+# obj.addWord(word)
+# param_2 = obj.search(word)
