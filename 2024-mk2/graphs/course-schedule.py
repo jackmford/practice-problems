@@ -1,41 +1,39 @@
 class Solution:
     def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:
-        # Dictionary of 
-        # {classes: prereqs}
-        # If any class has a prereq that itself is a prereq for, false
+        # DFS cycle detection
+        classes = defaultdict(list)
+        for pre in prerequisites:
+            classes[pre[0]].append(pre[1])
 
-        classes = {}
-        for courses in prerequisites:
-            p = classes.get(courses[0], [])
-            p.append(courses[1])
-            classes[courses[0]] = p
+        print(classes)
 
         visited = set()
-        
-        # This is cycle detection
-        # Check if there is a cycle for every class
-        def dfs(course):
-            # Already saw this class, cycle
-            if course in visited:
+        def dfs(class_):
+            # Cycle - class that requires this class but also has this class as a requirement
+            if class_ in visited:
                 return False
-            # No prerequisite, it is good
-            if course not in classes.keys():
+            # No requirements, return True
+            if class_ not in classes:
                 return True
-
-            visited.add(course)
-            # For every prereq on the course,
-            # check validity
-            for pre in classes[course]:
-                if dfs(pre) == False:
+            
+            
+            visited.add(class_)
+            # Checking requirements recursively 
+            for req in classes[class_]:
+                if dfs(req) == False:
                     return False
-            visited.remove(course)
-            # This course is good, don't need to check it anymore
-            classes.pop(course)
+
+            # We have checked all requirements and found we *can* take this class
+            # No need to check it anymore if it is a req for others
+            visited.remove(class_)
+            classes.pop(class_)
 
             return True
 
-        for c in range(numCourses):
-            if dfs(c) == False:
+        
+        # For every class, check if there is a cyclical req
+        for i in range(numCourses):
+            if dfs(i) == False:
                 return False
         return True
-        
+
