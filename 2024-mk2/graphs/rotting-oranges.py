@@ -1,41 +1,44 @@
-class Solution: 
+class Solution:
     def orangesRotting(self, grid: List[List[int]]) -> int:
+        # Level by level BFS
         ROWS, COLS = len(grid), len(grid[0])
         q = deque()
-        ones=0
-        total = 0
+        visited = set()
+        res = 0
+        fresh = 0
 
+        # Find all rotten oranges and count fresh oranges
         for r in range(ROWS):
             for c in range(COLS):
-                if grid[r][c] == 2:
-                    q.append((r,c))
                 if grid[r][c] == 1:
-                    ones+=1
-        while ones>0 and len(q) > 0:
+                    fresh += 1
+                if grid[r][c] == 2:
+                    q.append((r, c))
+
+        while fresh > 0 and q:
+            # Process all rotten oranges level at a time
             qLen = len(q)
-            for i in range(qLen): 
-                orange = q.popleft()
-                x,y = orange[0], orange[1]
-                if x-1 in range(ROWS) and y in range(COLS) and grid[x-1][y] == 1:
-                    ones-=1
+
+            for i in range(qLen):
+                cur = q.popleft()
+                x, y = cur[0], cur[1]
+                if x > 0 and grid[x-1][y] == 1:
                     grid[x-1][y] = 2
                     q.append((x-1, y))
-                if x+1 in range(ROWS) and y in range(COLS) and grid[x+1][y] == 1:
-                    ones-=1
+                    fresh-=1
+                if x < ROWS-1 and grid[x+1][y] == 1:
                     grid[x+1][y] = 2
                     q.append((x+1, y))
-                if x in range(ROWS) and y-1 in range(COLS) and grid[x][y-1] == 1:
-                    ones-=1
+                    fresh-=1
+                if y > 0 and grid[x][y-1] == 1:
                     grid[x][y-1] = 2
                     q.append((x, y-1))
-                if x in range(ROWS) and y+1 in range(COLS) and grid[x][y+1] == 1:
-                    ones-=1
+                    fresh-=1
+                if y < COLS-1 and grid[x][y+1] == 1:
                     grid[x][y+1] = 2
                     q.append((x, y+1))
-            total+=1
+                    fresh-=1
+            res+=1
 
-        if ones > 0:
-            return -1
-        return total
-
+        return res if fresh == 0 else -1
 
