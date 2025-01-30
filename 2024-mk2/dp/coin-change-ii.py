@@ -23,3 +23,27 @@ class Solution:
 
         return dfs(0, 0)
             
+class Solution:
+    def change(self, amount: int, coins: List[int]) -> int:
+        # At any i you can take i again and add to total
+        # Or you can move i and  
+        #memo = {}
+        memo = [[-1]*(amount) for _ in range(len(coins))]
+        def dfs(i, total):
+            if total == amount:
+                return 1
+            if total > amount:
+                return 0
+            if i >= len(coins):
+                return 0
+            if memo[i][total] != -1:
+                return memo[i][total]
+            
+            res = 0 
+            res += dfs(i+1, total)
+            res += dfs(i, total+coins[i])
+
+            memo[i][total] = res
+            return memo[i][total]
+
+        return dfs(0, 0)
