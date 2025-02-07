@@ -17,3 +17,24 @@ class Solution:
             return res
         return dfs(0)
 
+class Solution:
+    def jump(self, nums: List[int]) -> int:
+
+        res = 0
+        l, r = 0, 0
+
+        while r < len(nums)-1:
+            farthest = 0
+
+            for i in range(l, r+1):
+                # i +nums[i] == the farthest you can jump
+                farthest = max(farthest, i+nums[i])
+            l = r+1
+            r = farthest
+            res += 1
+
+        return res
+        
+
+
+
