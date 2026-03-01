@@ -18,14 +18,14 @@ def mock_eth_get_balance(wallet_address):
 def healthcheck() -> int:
     balance = mock_eth_get_balance(1)
     if balance.get("error"):
-        error_msg = f'{balance.get("error")} {balance.get("code")}'
+        error_msg = f'RPC ERROR | error: {balance.get("error")} | code: {balance.get("code")}'
         logger.error(error_msg)
         return 1
     
     pol = int(balance.get("result"), 16) / (POL_DECIMALS)
 
     if pol < HEALTHY_THRESHOLD:
-        logger.warning(f'POL level in wallet {balance.get("id")} is {pol:.2f}, consider increasing funds.')
+        logger.warning(f'LOW FUNDS | wallet_id: {balance.get("id")} | balance: {pol:.2f} | threshold: {HEALTHY_THRESHOLD}')
 
     return 0
 
