@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'poly-monitor'
+    static_configs:
+      - targets: ['poly-exporter:8000']
