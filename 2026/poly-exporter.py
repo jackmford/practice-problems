@@ -29,7 +29,7 @@ def fetch_blockchain_data():
         latency = time.time() - start_time
         RPC_LATENCY.set(latency)
         
-        if response.status_code == 200:
+        if block_res.status_code == 200:
             block_num = int(block_res.json().get('result'), 16)
             BLOCK_HEIGHT.set(block_num)
             
