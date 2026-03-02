@@ -6,6 +6,7 @@ RPC_URL = "https://polygon.drpc.org"
 WALLET_ADDRESS = "0x000000000000000000000000000000000000dEaD"
 SCRAPE_INTERVAL = 15
 PORT = 8000
+POL_CONVERSION = 10**18
 
 WALLET_BALANCE = Gauge('relayer_wallet_balance_pol', 'Balance of the relayer wallet in POL', ['address'])
 BLOCK_HEIGHT = Gauge('polygon_node_block_height', 'Current block height of the connected RPC node')
@@ -24,13 +25,12 @@ def fetch_blockchain_data():
     
     start_time = time.time()
     try:
-        response = requests.post(RPC_URL, json=payload_block, timeout=10)
+        block_res = requests.post(RPC_URL, json=payload_block, timeout=10)
         latency = time.time() - start_time
         RPC_LATENCY.set(latency)
         
         if response.status_code == 200:
-            result = response.json().get('result')
-            block_num = int(result, 16)
+            block_num = int(block_res.json().get('result'), 16)
             BLOCK_HEIGHT.set(block_num)
             
         # Fetch Wallet Balance (eth_getBalance)
@@ -44,7 +44,7 @@ def fetch_blockchain_data():
         balance_res = requests.post(RPC_URL, json=payload_balance, timeout=10)
         if balance_res.status_code == 200:
             wei_bal = int(balance_res.json().get('result'), 16)
-            pol_bal = wei_bal / 10**18
+            pol_bal = wei_bal / POL_CONVERSION
             WALLET_BALANCE.labels(address=WALLET_ADDRESS).set(pol_bal)
             
     except Exception as e:
