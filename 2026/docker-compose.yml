@@ -2,10 +2,30 @@ version: '3.8'
 
 services:
   poly-exporter:
-    build: .
+    build:
+      context: .
+      dockerfile: ./polygon-mon/exporter-service/Dockerfile
     container_name: poly-exporter
     ports:
       - "8000:8000"
+    restart: always
+
+  poly-relay:
+    build:
+      context: .
+      dockerfile: ./polygon-mon/relay-service/Dockerfile
+    container_name: poly-relay
+    ports:
+      - "8001:8001"
+    restart: always
+
+  poly-producer:
+    build:
+      context: .
+      dockerfile: ./polygon-mon/producer-service/Dockerfile
+    container_name: poly-producer
+    ports:
+      - "8002:8002"
     restart: always
 
   prometheus:
@@ -29,6 +49,17 @@ services:
     volumes:
       - grafana-storage:/var/lib/grafana
 
+  redis:
+    image: redis:7.4-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
 volumes:
   grafana-storage:
   prometheus-storage:
+  redis-data:
+    driver: local
