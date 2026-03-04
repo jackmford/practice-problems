@@ -17,6 +17,7 @@ services:
     container_name: poly-relay
     ports:
       - "8001:8001"
+      - "8006:8006"
     restart: always
 
   poly-producer:
@@ -26,6 +27,7 @@ services:
     container_name: poly-producer
     ports:
       - "8002:8002"
+      - "8005:8005"
     restart: always
 
   prometheus:
