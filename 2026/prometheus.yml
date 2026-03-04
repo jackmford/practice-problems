@@ -5,3 +5,9 @@ scrape_configs:
   - job_name: 'poly-monitor'
     static_configs:
       - targets: ['poly-exporter:8000']
+  - job_name: 'poly-producer'
+    static_configs:
+      - targets: ['poly-producer:8005']
+  - job_name: 'poly-relay'
+    static_configs:
+      - targets: ['poly-relay:8006']
