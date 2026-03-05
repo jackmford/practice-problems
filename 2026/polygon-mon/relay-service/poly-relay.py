@@ -54,7 +54,10 @@ def poll_for_transactions():
 
 # Mock API
 def poly_request():
-    if random.random() < 0.1:
+    # Generate latency data for our histogram
+    time.sleep(random.randint(0, 12))
+
+    if random.random() < 0.3:
         return 500
 
     return 200
