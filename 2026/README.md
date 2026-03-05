@@ -28,3 +28,6 @@ App = `localhost:8000`
 
 - [ ] create indexer service
 - [ ] retry logic for poly-relay transactions
+- [ ] PENDING/IN PROGRESS states for transactions
+- [ ] watcherdog to use a "claimed_at" timestamp to flip them back in progress
+      if they went to IN PROGRESS and a thread crashes
