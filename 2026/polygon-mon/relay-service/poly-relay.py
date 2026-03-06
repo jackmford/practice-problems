@@ -1,6 +1,7 @@
 import json
 import asyncio
 import random
+import time
 
 from redis import Redis
 from rq import Queue
@@ -13,6 +14,7 @@ REDIS_CONN = Redis(host="redis", port=6379, decode_responses=True)
 # Using a queue here but for multiple consumers could use
 # Redis STREAM instead
 queue = Queue(connection=REDIS_CONN)
+
 QUEUE_NAME = "QUEUE"
 POLL_TIME = 10
 SEND_TIME = 15
@@ -36,6 +38,7 @@ REQUEST_DURATION = Histogram(
 
 TRANSACTION_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.25
+DOG_TIMER = 60
 
 
 async def poll_for_transactions():
@@ -49,6 +52,9 @@ async def poll_for_transactions():
                     TRANSACTIONS_TO_SEND[item_json["transaction_id"]] = item_json
                     TRANSACTIONS_TO_SEND[item_json["transaction_id"]]["state"] = (
                         "PENDING"
+                    )
+                    TRANSACTIONS_TO_SEND[item_json["transaction_id"]]["claimed_at"] = (
+                        time.time()
                     )
 
             except Exception as e:
@@ -136,6 +142,28 @@ async def send_transactions_to_poly():
         await asyncio.gather(*tasks)
 
         await asyncio.sleep(SEND_TIME)
+
+
+async def the_watcher_doggenstein():
+    while True:
+        async with lock:
+            keys = list(TRANSACTIONS_TO_SEND.keys())
+
+            for transaction_id in keys:
+                if (
+                    transaction_id in TRANSACTIONS_TO_SEND
+                    and TRANSACTIONS_TO_SEND[transaction_id]["state"] == "IN_PROGRESS"
+                    and time.time() - TRANSACTIONS_TO_SEND[transaction_id]["claimed_at"]
+                    > DOG_TIMER
+                ):
+                    # IN_PROGRESS transaction is stuck
+                    # Resubmit with higher gas fees
+                    print(
+                        f"Transaction {transaction_id} stuck. Placing back in PENDING state."
+                    )
+                    TRANSACTIONS_TO_SEND[transaction_id]["state"] = "PENDING"
+
+        await asyncio.sleep(DOG_TIMER)
 
 
 async def main():
