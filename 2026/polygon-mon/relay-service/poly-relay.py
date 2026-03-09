@@ -43,8 +43,34 @@ RETRY_BASE_DELAY = 0.25
 DOG_TIMER = 60
 
 
+async def claim_nonce():
+    # Use incr for atomicity
+    # Gets it and increments it, returns current nonce to send
+    nonce = REDIS_CONN.incr("relayer_nonce") - 1
     CURRENT_NONCE.set(nonce)
+    return nonce
+
+
+async def get_wallet_nonce():
+    # TODO: pull actual nonce
+    # Ex. call
+    # blockchain_nonce = web3.eth.get_transaction_count(RELAYER_ADDRESS, 'pending')
+
+    # MOCK nonce get
+    blockchain_nonce = random.randint(0, 1000)
     WALLET_NONCE.set(blockchain_nonce)
+    # Only set it if Redis doesn't already have a higher number
+    # setnx = set not exists
+    REDIS_CONN.setnx("relayer_nonce", blockchain_nonce)
+
+
+async def assign_nonce_to_transaction(tid):
+    if tid in TRANSACTIONS_TO_SEND:
+        # prevent assigning a transaction that already has a nonce, a new nonce (double spend)
+        if "nonce" not in TRANSACTIONS_TO_SEND[tid]:
+            TRANSACTIONS_TO_SEND[tid]["nonce"] = await claim_nonce()
+
+
 async def poll_for_transactions():
     while True:
         item = REDIS_CONN.rpop(QUEUE_NAME)
@@ -52,14 +78,12 @@ async def poll_for_transactions():
             print("Pulling transaction from queue")
             try:
                 item_json = json.loads(item)  # type:ignore
+                tid = item_json["transaction_id"]
                 async with lock:
-                    TRANSACTIONS_TO_SEND[item_json["transaction_id"]] = item_json
-                    TRANSACTIONS_TO_SEND[item_json["transaction_id"]]["state"] = (
-                        "PENDING"
-                    )
-                    TRANSACTIONS_TO_SEND[item_json["transaction_id"]]["claimed_at"] = (
-                        time.time()
-                    )
+                    TRANSACTIONS_TO_SEND[tid] = item_json
+                    TRANSACTIONS_TO_SEND[tid]["state"] = "PENDING"
+                    TRANSACTIONS_TO_SEND[tid]["claimed_at"] = time.time()
+                    await assign_nonce_to_transaction(tid)
 
             except Exception as e:
                 print(f"Exception processing item {item}: {e}")  # type:ignore
@@ -80,7 +104,9 @@ async def poly_request():
 
 async def send_request(transaction_id):
     # these should all be sent async
-    print(f"Sending {transaction_id} to Poly...")
+    print(
+        f"Sending {transaction_id} to Poly (Nonce {TRANSACTIONS_TO_SEND[transaction_id]['nonce']})..."
+    )
     for attempt in range(TRANSACTION_MAX_RETRIES):
         try:
             with REQUEST_DURATION.time():
@@ -93,9 +119,9 @@ async def send_request(transaction_id):
                 # Updating DB
                 async with lock:
                     if transaction_id in TRANSACTIONS_TO_SEND:
+                        del TRANSACTIONS_TO_SEND[transaction_id]
                         print(f"{transaction_id} accepted on attempt {attempt + 1}.")
                         ACCEPTED_TRANSACTIONS.inc()
-                        del TRANSACTIONS_TO_SEND[transaction_id]
                 break
             else:
                 raise Exception("Request to poly_request failed.")
@@ -143,6 +169,7 @@ async def send_transactions_to_poly():
         for tid in pending_to_send:
             heap.append([TRANSACTIONS_TO_SEND[tid]["nonce"], tid])
         heapq.heapify(heap)
+
         # 1 at a time approach
         # while heap:
         #    nonce, tid = heapq.heappop(heap)
@@ -164,6 +191,7 @@ async def send_transactions_to_poly():
         await asyncio.sleep(SEND_TIME)
 
 
+# watcher should pick up transactions that are stuck and blocking and resubmit them
 async def the_watcher_doggenstein():
     while True:
         async with lock:
@@ -178,6 +206,9 @@ async def the_watcher_doggenstein():
                 ):
                     # IN_PROGRESS transaction is stuck
                     # Resubmit with higher gas fees
+                    # This should trigger a resend with higher fees, not a put back into pending state
+                    # Putting back in pending will assign it to a new nonce
+                    # TODO: make a helper that immediately resubmits with higher gas
                     print(
                         f"Transaction {transaction_id} stuck. Placing back in PENDING state."
                     )
@@ -187,8 +218,15 @@ async def the_watcher_doggenstein():
 
 
 async def main():
+    global lock
+    lock = asyncio.Lock()
+
     start_http_server(PROMETHEUS_PORT)
-    await asyncio.gather(poll_for_transactions(), send_transactions_to_poly())
+    # implement critical error handling here, need nonce to succeed
+    await get_wallet_nonce()
+    await asyncio.gather(
+        poll_for_transactions(), send_transactions_to_poly(), the_watcher_doggenstein()
+    )
 
     # poll_thread = threading.Thread(target=poll_for_transactions)
     # poll_thread.start()
