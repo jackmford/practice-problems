@@ -2,6 +2,7 @@ import json
 import asyncio
 import random
 import time
+import heapq
 
 from redis import Redis
 from rq import Queue
@@ -134,10 +135,26 @@ async def send_transactions_to_poly():
                     TRANSACTIONS_TO_SEND[transaction_id]["state"] = "IN_PROGRESS"
                     pending_to_send.append(transaction_id)
 
-        # Concurrently execute these
+        # use a minheap to order by nonce
+        heap = []
+        for tid in pending_to_send:
+            heap.append([TRANSACTIONS_TO_SEND[tid]["nonce"], tid])
+        heapq.heapify(heap)
+        # 1 at a time approach
+        # while heap:
+        #    nonce, tid = heapq.heappop(heap)
+        #    await send_request(tid)
+
+        # Broadcast approach
+        # tasks = []
+        # for transaction_id in pending_to_send:
+        #    tasks.append(send_request(transaction_id))
+
+        # Broadcast approach with nonce order
         tasks = []
-        for transaction_id in pending_to_send:
-            tasks.append(send_request(transaction_id))
+        while heap:
+            nonce, tid = heapq.heappop(heap)
+            tasks.append(send_request(tid))
 
         await asyncio.gather(*tasks)
 
