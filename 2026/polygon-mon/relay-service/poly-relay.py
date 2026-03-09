@@ -6,9 +6,8 @@ import heapq
 
 from redis import Redis
 from rq import Queue
-from prometheus_client import start_http_server, Counter, Histogram
+from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
-lock = asyncio.Lock()
 
 REDIS_CONN = Redis(host="redis", port=6379, decode_responses=True)
 
@@ -36,12 +35,16 @@ REQUEST_DURATION = Histogram(
     "Duration of HTTP requests in seconds",
     buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
 )
+CURRENT_NONCE = Gauge("current_nonce_value", "Value of the redis nonce")
+WALLET_NONCE = Gauge("wallet_nonce_value", "Value wallet nonce (remote)")
 
 TRANSACTION_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.25
 DOG_TIMER = 60
 
 
+    CURRENT_NONCE.set(nonce)
+    WALLET_NONCE.set(blockchain_nonce)
 async def poll_for_transactions():
     while True:
         item = REDIS_CONN.rpop(QUEUE_NAME)
