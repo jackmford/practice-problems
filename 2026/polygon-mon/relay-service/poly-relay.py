@@ -42,8 +42,25 @@ GAS_FEE = Gauge("base_gas_fee", "Current value of the gas fee")
 TRANSACTION_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.25
 DOG_TIMER = 60
-        GAS_FEE.set(BASE_GAS_FEE)
 
+BASE_GAS_FEE = 0
+
+
+async def get_gas_price():
+    print("Fetching base gas fee...")
+    gas_fee = random.randint(500, 1000)
+    return gas_fee
+
+
+async def gas_pricer():
+    while True:
+        # MOCK GET base gas fee
+        print("Fetching base gas fee...")
+        BASE_GAS_FEE = await get_gas_price()
+        GAS_FEE.set(BASE_GAS_FEE)
+        print(f"Current Gas Fee = {BASE_GAS_FEE}")
+
+        await asyncio.sleep(POLL_TIME)
 
 async def claim_nonce():
     # Use incr for atomicity
@@ -209,13 +226,25 @@ async def the_watcher_doggenstein():
                     # IN_PROGRESS transaction is stuck
                     # Resubmit with higher gas fees
                     # This should trigger a resend with higher fees, not a put back into pending state
-                    # Putting back in pending will assign it to a new nonce
-                    # TODO: make a helper that immediately resubmits with higher gas
-                    print(
-                        f"Transaction {transaction_id} stuck. Placing back in PENDING state."
-                    )
-                    TRANSACTIONS_TO_SEND[transaction_id]["state"] = "PENDING"
+                    print(f"Transaction {transaction_id} stuck. Repricing...")
 
+                    # protect the watchdog from sending ANOTHER resubmit if it is taking long to process
+                    TRANSACTIONS_TO_SEND[transaction_id]["claimed_at"] = time.time()
+
+                    # TODO: implement wallet protection so we don't overspend
+
+                    # Resubmit with higher gas
+                    # nonces can only ever go up in price!
+                    # so you dont want to use get_gas_price() for cur price if it went down
+                    cur_market_price = await get_gas_price()
+                    old_price = TRANSACTIONS_TO_SEND[transaction_id]["gas_fee"]
+                    new_price = max(cur_market_price * 1.10, old_price * 1.15)
+
+                    TRANSACTIONS_TO_SEND[transaction_id]["gas_fee"] = new_price
+                    print(f"Bumping {transaction_id}: {old_price} -> {new_price}")
+
+                    # Send it and don't wait
+                    asyncio.create_task(send_request(transaction_id, semaphore))
         await asyncio.sleep(DOG_TIMER)
 
 
