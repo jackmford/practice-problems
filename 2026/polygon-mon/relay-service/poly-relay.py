@@ -41,7 +41,7 @@ GAS_FEE = Gauge("base_gas_fee", "Current value of the gas fee")
 
 TRANSACTION_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.25
-DOG_TIMER = 60
+DOG_TIMER = 10
 
 BASE_GAS_FEE = 0
 
@@ -62,10 +62,11 @@ async def gas_pricer():
 
         await asyncio.sleep(POLL_TIME)
 
+
 async def claim_nonce():
     # Use incr for atomicity
     # Gets it and increments it, returns current nonce to send
-    nonce = REDIS_CONN.incr("relayer_nonce") - 1
+    nonce = REDIS_CONN.incr("relayer_nonce") - 1  # type:ignore
     CURRENT_NONCE.set(nonce)
     return nonce
 
@@ -102,6 +103,7 @@ async def poll_for_transactions():
                     TRANSACTIONS_TO_SEND[tid] = item_json
                     TRANSACTIONS_TO_SEND[tid]["state"] = "PENDING"
                     TRANSACTIONS_TO_SEND[tid]["claimed_at"] = time.time()
+                    TRANSACTIONS_TO_SEND[tid]["gas_fee"] = BASE_GAS_FEE
                     await assign_nonce_to_transaction(tid)
 
             except Exception as e:
@@ -121,51 +123,53 @@ async def poly_request():
     return 200
 
 
-async def send_request(transaction_id):
-    # these should all be sent async
-    print(
-        f"Sending {transaction_id} to Poly (Nonce {TRANSACTIONS_TO_SEND[transaction_id]['nonce']})..."
-    )
-    for attempt in range(TRANSACTION_MAX_RETRIES):
-        try:
-            with REQUEST_DURATION.time():
-                response = await poly_request()
+async def send_request(transaction_id, semaphore):
+    async with semaphore:
+        print(
+            f"Sending {transaction_id} to Poly (Nonce {TRANSACTIONS_TO_SEND[transaction_id]['nonce']})..."
+        )
+        for attempt in range(TRANSACTION_MAX_RETRIES):
+            try:
+                with REQUEST_DURATION.time():
+                    response = await poly_request()
 
-            # Use raise_for_status() on a real request
-            if response == 200:
-                # Transaction is "ACCEPTED", but not "FINALIZED" yet
-                # Indexer service handles watching for FINALIZED and
-                # Updating DB
-                async with lock:
-                    if transaction_id in TRANSACTIONS_TO_SEND:
-                        del TRANSACTIONS_TO_SEND[transaction_id]
-                        print(f"{transaction_id} accepted on attempt {attempt + 1}.")
-                        ACCEPTED_TRANSACTIONS.inc()
-                break
-            else:
-                raise Exception("Request to poly_request failed.")
-        except Exception as e:
-            FAILED_TRANSACTIONS.inc()
-            if attempt == TRANSACTION_MAX_RETRIES - 1:
+                # Use raise_for_status() on a real request
+                if response == 200:
+                    # Transaction is "ACCEPTED", but not "FINALIZED" yet
+                    # Indexer service handles watching for FINALIZED and
+                    # Updating DB
+                    async with lock:
+                        if transaction_id in TRANSACTIONS_TO_SEND:
+                            del TRANSACTIONS_TO_SEND[transaction_id]
+                            print(
+                                f"{transaction_id} accepted on attempt {attempt + 1}."
+                            )
+                            ACCEPTED_TRANSACTIONS.inc()
+                    break
+                else:
+                    raise Exception("Request to poly_request failed.")
+            except Exception as e:
+                FAILED_TRANSACTIONS.inc()
+                if attempt == TRANSACTION_MAX_RETRIES - 1:
+                    print(
+                        f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Marking as failed in DB"
+                    )
+                    # Mark as failed in DB MOCK
+                    break
+
                 print(
-                    f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Marking as failed in DB"
+                    f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Retrying..."
                 )
-                # Mark as failed in DB MOCK
-                break
 
-            print(
-                f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Retrying..."
-            )
+                # TRANSACTIONS_TO_SEND[transaction_id].setdefault("retries", 0)
+                # TRANSACTIONS_TO_SEND[transaction_id]["retries"] += 1
 
-            # TRANSACTIONS_TO_SEND[transaction_id].setdefault("retries", 0)
-            # TRANSACTIONS_TO_SEND[transaction_id]["retries"] += 1
+                # exponential backoff
+                delay = RETRY_BASE_DELAY * (2**attempt)
+                # jitter
+                delay *= random.uniform(0.8, 1.2)
 
-            # exponential backoff
-            delay = RETRY_BASE_DELAY * (2**attempt)
-            # jitter
-            delay *= random.uniform(0.8, 1.2)
-
-            await asyncio.sleep(delay)
+                await asyncio.sleep(delay)
 
 
 async def send_transactions_to_poly():
@@ -201,9 +205,11 @@ async def send_transactions_to_poly():
 
         # Broadcast approach with nonce order
         tasks = []
+        # Create a semaphore to basically introduce a "sliding nonce window"
+        # prevents sending nonces too far in the future or overwhelming the mempool
         while heap:
-            nonce, tid = heapq.heappop(heap)
-            tasks.append(send_request(tid))
+            _, tid = heapq.heappop(heap)
+            tasks.append(send_request(tid, semaphore))
 
         await asyncio.gather(*tasks)
 
@@ -245,6 +251,7 @@ async def the_watcher_doggenstein():
 
                     # Send it and don't wait
                     asyncio.create_task(send_request(transaction_id, semaphore))
+
         await asyncio.sleep(DOG_TIMER)
 
 
@@ -252,11 +259,17 @@ async def main():
     global lock
     lock = asyncio.Lock()
 
+    global semaphore
+    semaphore = asyncio.Semaphore(5)
+
     start_http_server(PROMETHEUS_PORT)
     # implement critical error handling here, need nonce to succeed
     await get_wallet_nonce()
     await asyncio.gather(
-        poll_for_transactions(), send_transactions_to_poly(), the_watcher_doggenstein()
+        poll_for_transactions(),
+        send_transactions_to_poly(),
+        the_watcher_doggenstein(),
+        gas_pricer(),
     )
 
     # poll_thread = threading.Thread(target=poll_for_transactions)
