@@ -33,11 +33,11 @@ App = `localhost:8000`
 - [ ] traces
 - [ ] add all to dashboard
 - [ ] create indexer service
-- [x] watcherdog to use a "claimed_at" timestamp to flip them back in progress
-      if they went to IN PROGRESS and a thread crashes
+- [x] watcherdog to use a "claimed_at" timestamp to flip them back in progress if they went to IN PROGRESS and a thread crashes
 - [ ] nonce management
 - [ ] reorg management
-- [ ] make watcherdog actually resubmit with higher gas and simulate head of line blocking problems
+- [x] make watcherdog actually resubmit with higher gas and simulate head of line blocking problems
 - [ ] make true nonce call to blockchain somewhere
-- [ ] implement real gas math
-- [ ] implement a sliding window with a semaphore for the transactions to limit blasting the blockchain with too many transactions
+- [x] implement real gas math
+- [x] implement a sliding window with a semaphore for the transactions to limit blasting the blockchain with too many transactions
+- [ ] wallet protection
