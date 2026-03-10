@@ -33,14 +33,16 @@ ACCEPTED_TRANSACTIONS = Counter(
 REQUEST_DURATION = Histogram(
     "http_request_duration_seconds",
     "Duration of HTTP requests in seconds",
-    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 60.0],
 )
 CURRENT_NONCE = Gauge("current_nonce_value", "Value of the redis nonce")
 WALLET_NONCE = Gauge("wallet_nonce_value", "Value wallet nonce (remote)")
+GAS_FEE = Gauge("base_gas_fee", "Current value of the gas fee")
 
 TRANSACTION_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.25
 DOG_TIMER = 60
+        GAS_FEE.set(BASE_GAS_FEE)
 
 
 async def claim_nonce():
