@@ -105,7 +105,7 @@ async def fetch_gas_market_data():
         except Exception as e:
             print(f"Gas Market Fetch Error: {e}")
 
-        await asyncio.sleep(POLL_TIME)
+        await asyncio.sleep(POLL_TIME * 2)
 
 
 async def get_gas_price():
