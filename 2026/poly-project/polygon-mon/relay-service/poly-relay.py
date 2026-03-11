@@ -4,6 +4,7 @@ import random
 import time
 import heapq
 
+import httpx
 from redis import Redis
 from rq import Queue
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
@@ -38,16 +39,83 @@ REQUEST_DURATION = Histogram(
 CURRENT_NONCE = Gauge("current_nonce_value", "Value of the redis nonce")
 WALLET_NONCE = Gauge("wallet_nonce_value", "Value wallet nonce (remote)")
 GAS_FEE = Gauge("base_gas_fee", "Current value of the gas fee")
+MARKET_BASE_FEE = Gauge(
+    "polygon_market_base_fee_gwei", "Current network base fee in Gwei"
+)
+MARKET_TIP = Gauge(
+    "polygon_market_priority_fee_gwei",
+    "Market priority fee (Tip) in Gwei",
+    ["percentile"],
+)
+
 
 TRANSACTION_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.25
 DOG_TIMER = 10
 
 BASE_GAS_FEE = 0
+DEFAULT_PRIORITY_FEE = 30  # Gwei
+
+RPC_URL = "https://polygon.drpc.org"
+
+
+async def fetch_gas_market_data():
+    while True:
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "eth_feeHistory",
+            # look at the latest block, and get the 25th, 50th, and 75th percentiles
+            "params": ["1", "latest", [25, 50, 75]],
+            "id": 1,
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.post(RPC_URL, json=payload, timeout=5)
+            if not res:
+                print("Failed to retrieve gas data.")
+                print(res)
+                # retry here probably
+                return
+
+            print(res)
+            print(res.json())
+            res = res.json().get("result")
+
+            latest_base_fee_wei = int(res["baseFeePerGas"][-1], 16)
+            BASE_GAS_FEE = latest_base_fee_wei / 10**9
+            MARKET_BASE_FEE.set(latest_base_fee_wei / 10**9)  # Convert to Gwei
+            print(f"New Base Fee: {BASE_GAS_FEE}")
+
+            # median tip for last block
+            last_block_rewards = res["reward"][-1]
+
+            DEFAULT_PRIORITY_FEE = int(last_block_rewards[1], 16) / 10**9
+            print(f"New Priority Fee: {DEFAULT_PRIORITY_FEE}")
+            MARKET_TIP.labels(percentile="25").set(
+                int(last_block_rewards[0], 16) / 10**9
+            )
+            MARKET_TIP.labels(percentile="50").set(
+                int(last_block_rewards[1], 16) / 10**9
+            )
+            MARKET_TIP.labels(percentile="75").set(
+                int(last_block_rewards[2], 16) / 10**9
+            )
+
+        except Exception as e:
+            print(f"Gas Market Fetch Error: {e}")
+
+        await asyncio.sleep(POLL_TIME)
 
 
 async def get_gas_price():
     print("Fetching base gas fee...")
+    gas_fee = random.randint(500, 1000)
+    return gas_fee
+
+
+async def get_priority_price():
+    print("Fetching priority gas fee...")
     gas_fee = random.randint(500, 1000)
     return gas_fee
 
@@ -103,7 +171,10 @@ async def poll_for_transactions():
                     TRANSACTIONS_TO_SEND[tid] = item_json
                     TRANSACTIONS_TO_SEND[tid]["state"] = "PENDING"
                     TRANSACTIONS_TO_SEND[tid]["claimed_at"] = time.time()
-                    TRANSACTIONS_TO_SEND[tid]["gas_fee"] = BASE_GAS_FEE
+                    TRANSACTIONS_TO_SEND[tid]["priority_fee"] = DEFAULT_PRIORITY_FEE
+                    TRANSACTIONS_TO_SEND[tid]["max_fee"] = (
+                        BASE_GAS_FEE + DEFAULT_PRIORITY_FEE
+                    )
                     await assign_nonce_to_transaction(tid)
 
             except Exception as e:
@@ -242,12 +313,23 @@ async def the_watcher_doggenstein():
                     # Resubmit with higher gas
                     # nonces can only ever go up in price!
                     # so you dont want to use get_gas_price() for cur price if it went down
-                    cur_market_price = await get_gas_price()
-                    old_price = TRANSACTIONS_TO_SEND[transaction_id]["gas_fee"]
-                    new_price = max(cur_market_price * 1.10, old_price * 1.15)
+                    await fetch_gas_market_data()
+                    # would have a get_priority_price() here
 
-                    TRANSACTIONS_TO_SEND[transaction_id]["gas_fee"] = new_price
-                    print(f"Bumping {transaction_id}: {old_price} -> {new_price}")
+                    old_price = TRANSACTIONS_TO_SEND[transaction_id]["max_fee"]
+                    old_priority = TRANSACTIONS_TO_SEND[transaction_id]["priority_fee"]
+
+                    # If priority has gone up, use it and increase by 25%
+                    # If it has gone down, increase our old priority by 15%
+                    new_priority = max(
+                        30, DEFAULT_PRIORITY_FEE * 1.25, old_priority * 1.15
+                    )
+
+                    # If the current market price has gone down, we need to maintain our old price and increase it to be picked up.
+                    new_max = max(BASE_GAS_FEE + new_priority, old_price * 1.15)
+
+                    TRANSACTIONS_TO_SEND[transaction_id]["max_fee"] = new_max
+                    print(f"Bumping {transaction_id}: {old_price} -> {new_max}")
 
                     # Send it and don't wait
                     asyncio.create_task(send_request(transaction_id, semaphore))
@@ -265,11 +347,13 @@ async def main():
     start_http_server(PROMETHEUS_PORT)
     # implement critical error handling here, need nonce to succeed
     await get_wallet_nonce()
+
     await asyncio.gather(
         poll_for_transactions(),
         send_transactions_to_poly(),
         the_watcher_doggenstein(),
-        gas_pricer(),
+        # gas_pricer(),
+        fetch_gas_market_data(),
     )
 
     # poll_thread = threading.Thread(target=poll_for_transactions)
