@@ -41,3 +41,4 @@ App = `localhost:8000`
 - [x] implement real gas math
 - [x] implement a sliding window with a semaphore for the transactions to limit blasting the blockchain with too many transactions
 - [ ] wallet protection
+- [ ] label request types for duration metric
