@@ -74,12 +74,10 @@ async def fetch_gas_market_data():
                 res = await client.post(RPC_URL, json=payload, timeout=5)
             if not res:
                 print("Failed to retrieve gas data.")
-                print(res)
+                print(res.json())
                 # retry here probably
                 return
 
-            print(res)
-            print(res.json())
             res = res.json().get("result")
 
             latest_base_fee_wei = int(res["baseFeePerGas"][-1], 16)
