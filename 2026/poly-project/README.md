@@ -43,3 +43,4 @@ App = `localhost:8000`
 - [ ] wallet protection
 - [ ] label request types for duration metric
 - [ ] add live gas prices to dashboard
+- [ ] set up loki for logs and integrate to grafana
