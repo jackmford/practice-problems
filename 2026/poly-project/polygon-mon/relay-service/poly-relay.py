@@ -1,4 +1,5 @@
 import json
+import structlog
 import asyncio
 import random
 import time
@@ -8,6 +9,16 @@ import httpx
 from redis import Redis
 from rq import Queue
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
+
+structlog.configure(
+    processors=[
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ]
+)
+
+logger = structlog.get_logger()
 
 
 REDIS_CONN = Redis(host="redis", port=6379, decode_responses=True)
@@ -57,6 +68,7 @@ BASE_GAS_FEE = 0
 DEFAULT_PRIORITY_FEE = 30  # Gwei
 
 RPC_URL = "https://polygon.drpc.org"
+RELAYER_ADDRESS = "0x1234567890123456789012345678901234567890"
 
 
 async def fetch_gas_market_data():
@@ -73,8 +85,9 @@ async def fetch_gas_market_data():
             async with httpx.AsyncClient() as client:
                 res = await client.post(RPC_URL, json=payload, timeout=5)
             if not res:
-                print("Failed to retrieve gas data.")
-                print(res.json())
+                # print("Failed to retrieve gas data.")
+                # print(res.json())
+                logger.error("gas_fetch_failed", error=str(res.json()))
                 # retry here probably
                 return
 
@@ -83,13 +96,15 @@ async def fetch_gas_market_data():
             latest_base_fee_wei = int(res["baseFeePerGas"][-1], 16)
             BASE_GAS_FEE = latest_base_fee_wei / 10**9
             MARKET_BASE_FEE.set(latest_base_fee_wei / 10**9)  # Convert to Gwei
-            print(f"New Base Fee: {BASE_GAS_FEE}")
+            # print(f"New Base Fee: {BASE_GAS_FEE}")
+            logger.info("new_base_fee", base_fee={BASE_GAS_FEE})
 
             # median tip for last block
             last_block_rewards = res["reward"][-1]
 
             DEFAULT_PRIORITY_FEE = int(last_block_rewards[1], 16) / 10**9
-            print(f"New Priority Fee: {DEFAULT_PRIORITY_FEE}")
+            # print(f"New Priority Fee: {DEFAULT_PRIORITY_FEE}")
+            logger.info("new_priority_fee", priority_fee={DEFAULT_PRIORITY_FEE})
             MARKET_TIP.labels(percentile="25").set(
                 int(last_block_rewards[0], 16) / 10**9
             )
@@ -101,32 +116,33 @@ async def fetch_gas_market_data():
             )
 
         except Exception as e:
-            print(f"Gas Market Fetch Error: {e}")
+            # print(f"Gas Market Fetch Error: {e}")
+            logger.error("gas_fetch_failed", error=str(e))
 
         await asyncio.sleep(POLL_TIME * 2)
 
 
-async def get_gas_price():
-    print("Fetching base gas fee...")
-    gas_fee = random.randint(500, 1000)
-    return gas_fee
+# async def get_gas_price():
+#     # print("Fetching base gas fee...")
+#     logger.debug("base_gas_fee_fetch")
+#     gas_fee = random.randint(500, 1000)
+#     return gas_fee
+#
+#
+# async def get_priority_price():
+#     # print("Fetching priority gas fee...")
+#     logger.debug("base_priority_fee_fetch")
+#     gas_fee = random.randint(500, 1000)
+#     return gas_fee
 
 
-async def get_priority_price():
-    print("Fetching priority gas fee...")
-    gas_fee = random.randint(500, 1000)
-    return gas_fee
-
-
-async def gas_pricer():
-    while True:
-        # MOCK GET base gas fee
-        print("Fetching base gas fee...")
-        BASE_GAS_FEE = await get_gas_price()
-        GAS_FEE.set(BASE_GAS_FEE)
-        print(f"Current Gas Fee = {BASE_GAS_FEE}")
-
-        await asyncio.sleep(POLL_TIME)
+# async def gas_pricer():
+#     while True:
+#         # MOCK GET base gas fee
+#         BASE_GAS_FEE = await get_gas_price()
+#         GAS_FEE.set(BASE_GAS_FEE)
+#
+#         await asyncio.sleep(POLL_TIME)
 
 
 async def claim_nonce():
@@ -137,17 +153,50 @@ async def claim_nonce():
     return nonce
 
 
+# Should call this periodically from another coroutine that is getting the wallet nonce
+# and comparing it to our redis counter to ensure we haven't gotten out of sync
+# if the wallet nonce is ahead of where our nonce is we maybe lost transactions
 async def get_wallet_nonce():
     # TODO: pull actual nonce
     # Ex. call
-    # blockchain_nonce = web3.eth.get_transaction_count(RELAYER_ADDRESS, 'pending')
+    logger.bind(relayer_address=RELAYER_ADDRESS)
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionCount",
+        "params": [RELAYER_ADDRESS, "pending"],
+        "id": 1,
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(RPC_URL, json=payload, timeout=5)
+        if res.status_code != 200:
+            logger.error(
+                "fetch_wallet_nonce_failed", status_code=res.status_code, error=res.text
+            )
+            return
+        result = res.json().get("result")
+        if result is None:
+            logger.error("fetch_wallet_nonce_failed", result=result)
+            # print("No nonce result from RPC")
+            return
+
+        blockchain_nonce = int(result, 16)
+        WALLET_NONCE.set(blockchain_nonce)
+
+        REDIS_CONN.setnx("relayer_nonce", blockchain_nonce)
+    except Exception as e:
+        # print(f"Error fetching wallet nonce: {e}")
+        logger.error("fetch_wallet_nonce_failed", error=str(e))
+
+    # blockchain_nonce = web3.eth.get_transaction_count(, 'pending')
 
     # MOCK nonce get
-    blockchain_nonce = random.randint(0, 1000)
-    WALLET_NONCE.set(blockchain_nonce)
+    # blockchain_nonce = random.randint(0, 1000)
+    # WALLET_NONCE.set(blockchain_nonce)
     # Only set it if Redis doesn't already have a higher number
     # setnx = set not exists
-    REDIS_CONN.setnx("relayer_nonce", blockchain_nonce)
+    # REDIS_CONN.setnx("relayer_nonce", blockchain_nonce)
 
 
 async def assign_nonce_to_transaction(tid):
@@ -161,7 +210,8 @@ async def poll_for_transactions():
     while True:
         item = REDIS_CONN.rpop(QUEUE_NAME)
         if item:
-            print("Pulling transaction from queue")
+            logger.debug("transaction_pull")
+            # print("Pulling transaction from queue")
             try:
                 item_json = json.loads(item)  # type:ignore
                 tid = item_json["transaction_id"]
@@ -176,7 +226,8 @@ async def poll_for_transactions():
                     await assign_nonce_to_transaction(tid)
 
             except Exception as e:
-                print(f"Exception processing item {item}: {e}")  # type:ignore
+                # print(f"Exception processing item {item}: {e}")  # type:ignore
+                logger.error("transaction_pull_failed", item=str(item), error=str(e))
 
         await asyncio.sleep(POLL_TIME)
 
@@ -194,8 +245,13 @@ async def poly_request():
 
 async def send_request(transaction_id, semaphore):
     async with semaphore:
-        print(
-            f"Sending {transaction_id} to Poly (Nonce {TRANSACTIONS_TO_SEND[transaction_id]['nonce']})..."
+        logger.bind(transaction_id=transaction_id)
+        # print(
+        #     f"Sending {transaction_id} to Poly (Nonce {TRANSACTIONS_TO_SEND[transaction_id]['nonce']})..."
+        # )
+        logger.info(
+            "sending_poly_transaction",
+            nonce=TRANSACTIONS_TO_SEND[transaction_id]["nonce"],
         )
         for attempt in range(TRANSACTION_MAX_RETRIES):
             try:
@@ -210,25 +266,32 @@ async def send_request(transaction_id, semaphore):
                     async with lock:
                         if transaction_id in TRANSACTIONS_TO_SEND:
                             del TRANSACTIONS_TO_SEND[transaction_id]
-                            print(
-                                f"{transaction_id} accepted on attempt {attempt + 1}."
-                            )
+                            # print(
+                            #    f"{transaction_id} accepted on attempt {attempt + 1}."
+                            # )
+                            logger.info("transaction_accepted", attempt=attempt + 1)
                             ACCEPTED_TRANSACTIONS.inc()
                     break
                 else:
                     raise Exception("Request to poly_request failed.")
             except Exception as e:
                 FAILED_TRANSACTIONS.inc()
+                logger.error(
+                    "transaction_attempt_failed", attempt=attempt + 1, error=str(e)
+                )
                 if attempt == TRANSACTION_MAX_RETRIES - 1:
-                    print(
-                        f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Marking as failed in DB"
-                    )
+                    # logger.error(
+                    #    "transaction_attempt_failed", attempt=attempt + 1, error=str(e)
+                    # )
+                    # print(
+                    #     f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Marking as failed in DB"
+                    # )
                     # Mark as failed in DB MOCK
                     break
 
-                print(
-                    f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Retrying..."
-                )
+                # print(
+                #    f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Retrying..."
+                # )
 
                 # TRANSACTIONS_TO_SEND[transaction_id].setdefault("retries", 0)
                 # TRANSACTIONS_TO_SEND[transaction_id]["retries"] += 1
@@ -301,7 +364,9 @@ async def the_watcher_doggenstein():
                     # IN_PROGRESS transaction is stuck
                     # Resubmit with higher gas fees
                     # This should trigger a resend with higher fees, not a put back into pending state
-                    print(f"Transaction {transaction_id} stuck. Repricing...")
+                    # print(f"Transaction {transaction_id} stuck. Repricing...")
+                    logger.bind(transaction_id=transaction_id)
+                    logger.warning("transaction_stuck")
 
                     # protect the watchdog from sending ANOTHER resubmit if it is taking long to process
                     TRANSACTIONS_TO_SEND[transaction_id]["claimed_at"] = time.time()
@@ -314,7 +379,7 @@ async def the_watcher_doggenstein():
                     await fetch_gas_market_data()
                     # would have a get_priority_price() here
 
-                    old_price = TRANSACTIONS_TO_SEND[transaction_id]["max_fee"]
+                    old_max = TRANSACTIONS_TO_SEND[transaction_id]["max_fee"]
                     old_priority = TRANSACTIONS_TO_SEND[transaction_id]["priority_fee"]
 
                     # If priority has gone up, use it and increase by 25%
@@ -324,10 +389,17 @@ async def the_watcher_doggenstein():
                     )
 
                     # If the current market price has gone down, we need to maintain our old price and increase it to be picked up.
-                    new_max = max(BASE_GAS_FEE + new_priority, old_price * 1.15)
+                    new_max = max(BASE_GAS_FEE + new_priority, old_max * 1.15)
 
                     TRANSACTIONS_TO_SEND[transaction_id]["max_fee"] = new_max
-                    print(f"Bumping {transaction_id}: {old_price} -> {new_max}")
+                    logger.warning(
+                        "transaction_price_bump",
+                        new_max=new_max,
+                        old_max=old_max,
+                        new_priority=new_priority,
+                        old_priority=old_priority,
+                    )
+                    # print(f"Bumping {transaction_id}: {old_max} -> {new_max}")
 
                     # Send it and don't wait
                     asyncio.create_task(send_request(transaction_id, semaphore))
@@ -364,7 +436,8 @@ async def main():
     # poll_thread.join()
     # send_thread.join()
 
-    print("Main thread finished.")
+    # print("Main thread finished.")
+    logger.info("main_thread_finished")
     return
 
 
