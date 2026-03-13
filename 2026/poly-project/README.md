@@ -44,6 +44,7 @@ App = `localhost:8000`
 ### Observability
 
 - [x] add live gas prices to dashboard
+- [ ] save dashboards to transfer across machines
 - [ ] logger everywhere
 - [ ] set up loki for logs and integrate to grafana
 - [ ] traces
