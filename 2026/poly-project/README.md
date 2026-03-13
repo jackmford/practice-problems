@@ -22,6 +22,7 @@ Run the project with
 
 Prometheus = `localhost:9090`
 Grafana = `localhost:3000`
+Loki = `localhost:3100`
 App = `localhost:8000`
 
 ## TODO
