@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   poly-exporter:
     build:
@@ -60,8 +58,18 @@ services:
       - redis-data:/data
     command: redis-server --appendonly yes
 
+  loki:
+    image: grafana/loki:3.0.0
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+
 volumes:
   grafana-storage:
   prometheus-storage:
+  loki-data:
   redis-data:
     driver: local
