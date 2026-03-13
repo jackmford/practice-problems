@@ -5,21 +5,62 @@ import random
 import time
 import heapq
 
+import queue
+import logging
+import logging.handlers
 import httpx
+import logging_loki
 from redis import Redis
 from rq import Queue
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
+# structlog.configure(
+#     processors=[
+#         structlog.processors.add_log_level,
+#         structlog.processors.TimeStamper(fmt="iso"),
+#         structlog.processors.JSONRenderer(),
+#     ]
+# )
+
+log_queue = queue.Queue(-1)
+
+loki_handler = logging_loki.LokiHandler(
+    url="http://loki:3100/loki/api/v1/push",
+    tags={"application": "poly-relay", "env": "prod"},
+    version="1",
+)
+
+async_handler = logging.handlers.QueueHandler(log_queue)
+
+listener = logging.handlers.QueueListener(log_queue, loki_handler)
+
 structlog.configure(
     processors=[
+        structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
-    ]
+        # We DON'T render to JSON here; we let the formatter handle it
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter("%(message)s"))
+
+root_logger = logging.getLogger()
+root_logger.addHandler(async_handler)
+root_logger.addHandler(console_handler)  # Temporary: See logs in 'docker logs'
+root_logger.setLevel(logging.INFO)
 
 logger = structlog.get_logger()
 
+# logging.getLogger().addHandler(handler)
+
+# logger = structlog.get_logger()
 
 REDIS_CONN = Redis(host="redis", port=6379, decode_responses=True)
 
@@ -413,6 +454,8 @@ async def main():
 
     global semaphore
     semaphore = asyncio.Semaphore(5)
+
+    listener.start()
 
     start_http_server(PROMETHEUS_PORT)
     # implement critical error handling here, need nonce to succeed
