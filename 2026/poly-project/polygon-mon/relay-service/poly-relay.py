@@ -28,6 +28,7 @@ loki_handler = logging_loki.LokiHandler(
 
 listener = logging.handlers.QueueListener(log_queue, loki_handler)
 
+# do we still need structlog with loki? how should we manage this?
 structlog.configure(
     processors=[
         structlog.contextvars.merge_contextvars,
@@ -48,6 +49,8 @@ console_handler.setFormatter(logging.Formatter("%(message)s"))
 root_logger = logging.getLogger()
 root_logger.addHandler(async_handler)
 root_logger.addHandler(console_handler)
+
+# TODO: make dynamic
 root_logger.setLevel(logging.INFO)
 
 logger = structlog.get_logger()
