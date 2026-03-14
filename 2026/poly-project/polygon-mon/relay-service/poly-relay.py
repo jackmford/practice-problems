@@ -63,8 +63,8 @@ REDIS_CONN = Redis(host="redis", port=6379, decode_responses=True)
 queue = Queue(connection=REDIS_CONN)
 
 QUEUE_NAME = "QUEUE"
-POLL_TIME = 10
-SEND_TIME = 15
+POLL_TIME = 5
+SEND_TIME = 7
 PROMETHEUS_PORT = 8006
 
 TRANSACTIONS_TO_SEND = {}
@@ -122,7 +122,7 @@ async def fetch_gas_market_data():
             if not res:
                 # print("Failed to retrieve gas data.")
                 # print(res.json())
-                logger.error("gas_fetch_failed", error=str(res.json()))
+                logger.error("gas_fetch_failed", error="Response is None")
                 # retry here probably
                 return
 
@@ -151,10 +151,9 @@ async def fetch_gas_market_data():
             )
 
         except Exception as e:
-            # print(f"Gas Market Fetch Error: {e}")
             logger.error("gas_fetch_failed", error=str(e))
 
-        await asyncio.sleep(POLL_TIME * 2)
+        await asyncio.sleep(POLL_TIME * 3)
 
 
 # async def get_gas_price():
@@ -300,6 +299,9 @@ async def send_request(transaction_id, semaphore):
                     # Updating DB
                     async with lock:
                         if transaction_id in TRANSACTIONS_TO_SEND:
+                            CURRENT_NONCE.set(
+                                TRANSACTIONS_TO_SEND[transaction_id]["nonce"]
+                            )
                             del TRANSACTIONS_TO_SEND[transaction_id]
                             # print(
                             #    f"{transaction_id} accepted on attempt {attempt + 1}."
@@ -311,19 +313,19 @@ async def send_request(transaction_id, semaphore):
                     raise Exception("Request to poly_request failed.")
             except Exception as e:
                 FAILED_TRANSACTIONS.inc()
-                logger.error(
-                    "transaction_attempt_failed", attempt=attempt + 1, error=str(e)
-                )
                 if attempt == TRANSACTION_MAX_RETRIES - 1:
-                    # logger.error(
-                    #    "transaction_attempt_failed", attempt=attempt + 1, error=str(e)
-                    # )
+                    logger.error(
+                        "transaction_attempt_failed", attempt=attempt + 1, error=str(e)
+                    )
                     # print(
                     #     f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Marking as failed in DB"
                     # )
                     # Mark as failed in DB MOCK
                     break
 
+                logger.warn(
+                    "transaction_attempt_failed", attempt=attempt + 1, error=str(e)
+                )
                 # print(
                 #    f"{transaction_id} attempt {attempt + 1}/{TRANSACTION_MAX_RETRIES} failed: {e}. Retrying..."
                 # )
