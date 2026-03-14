@@ -48,6 +48,8 @@ services:
     restart: always
     volumes:
       - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning/dashboards/dashboard_provider.yml:/etc/grafana/provisioning/dashboards/dashboard_provider.yml
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards/json_files
 
   redis:
     image: redis:7.4-alpine
