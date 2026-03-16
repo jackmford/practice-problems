@@ -2,6 +2,10 @@
 
 Small local monitoring project to hit a Polygon RPC provider and pull back base metrics.
 
+## Proposed Arch. Diagram
+
+[!arch_diagram](arch.png)
+
 ## Metrics
 
 `relayer_wallet_balance_pol`
@@ -41,13 +45,14 @@ App = `localhost:8000`
 - [ ] create indexer service
 - [ ] nonce management
 - [ ] reorg management
+- [ ] gas oracle service -> handles updating gas fee info in redis constantly for relayers
 
 ### Observability
 
 - [x] add live gas prices to dashboard
 - [x] save dashboards to transfer across machines
-- [ ] logger everywhere
-- [ ] set up loki for logs and integrate to grafana
+- [x] logger everywhere
+- [x] set up loki for logs and integrate to grafana
 - [ ] traces
 - [ ] add all to dashboard
 - [ ] label request types for duration metric
