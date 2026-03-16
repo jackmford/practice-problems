@@ -4,7 +4,7 @@ Small local monitoring project to hit a Polygon RPC provider and pull back base 
 
 ## Proposed Arch. Diagram
 
-[!arch_diagram](arch.png)
+![arch_diagram](arch.png)
 
 ## Metrics
 
