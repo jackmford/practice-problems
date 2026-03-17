@@ -1,0 +1,6 @@
+{"timestamp": "2026-03-17T17:10:00Z", "endpoint": "/api/v1/user", "latency_ms": 105.2, "status": 200, "level": "info"}
+{"timestamp": "2026-03-17T17:10:01Z", "endpoint": "/api/v1/order", "latency_ms": 450.7, "status": 200, "level": "info"}
+{"timestamp": "2026-03-17T17:10:02Z", "endpoint": "/api/v1/user", "latency_ms": 98.1, "status": 200, "level": "info"}
+{"invalid_json": "this line should be skipped by your parser"}
+{"timestamp": "2026-03-17T17:10:03Z", "endpoint": "/api/v1/order", "latency_ms": 1200.5, "status": 500, "level": "error"}
+{"timestamp": "2026-03-17T17:10:04Z", "endpoint": "/api/v1/user", "latency_ms": "not_a_number", "status": 200}
