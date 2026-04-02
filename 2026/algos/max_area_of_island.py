@@ -25,11 +25,8 @@ class Solution:
             return right + left + down + up + 1
 
         maxArea = 0
-
         for i in range(len(grid)):
             for j in range(len(grid[i])):
                 if grid[i][j] == 1:
-                    print(i, j)
-
                     maxArea = max(maxArea, dfs(i, j))
         return maxArea
