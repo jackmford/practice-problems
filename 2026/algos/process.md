@@ -1,0 +1,10 @@
+- 2 ptr
+- stack
+- sliding window
+- DFS, BFS
+- DP
+- Binary Search
+- Min/Max Heap
+- Queues
+- Bit manip
+  - ^ XOR
