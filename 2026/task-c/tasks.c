@@ -17,12 +17,12 @@ struct Task {
 	char taskDesc[75];
 };
 
-int writeToFile(char task[75]) {
+int writeToFile(struct Task* t) {
 	FILE *fptr;
 	fptr = fopen("tasks.txt", "a");
 
 	if (fptr != NULL) {
-		fputs(task, fptr);
+		fputs(t->taskDesc, fptr);
 		fputc('\n', fptr);
         	fclose(fptr);
 	}
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 			strncpy(t.taskDesc, argv[2], 73);
 			t.taskDesc[74] = '\0';
 
-			int returnCode = writeToFile(t.taskDesc);
+			int returnCode = writeToFile(&t);
 
 			printf("Task num %d %d %s\n", t.taskNum, t.status, t.taskDesc);
 			arr[pos] = t;
