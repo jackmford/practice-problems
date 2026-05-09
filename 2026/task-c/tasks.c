@@ -40,7 +40,7 @@ int readFile() {
 
 	if (fptr != NULL) {
 		while (fgets(t.taskDesc, 75, fptr)) {
-			t.taskDesc[74] = '\0';
+			//t.taskDesc[74] = '\0';
 			printf("%s", t.taskDesc);
 		}
         	fclose(fptr);
@@ -64,8 +64,8 @@ int main(int argc, char *argv[]) {
 			// idk if we even need this we can just display them in order
 			// status should always be 0
 			struct Task t = {0, 0};
-			strncpy(t.taskDesc, argv[2], 73);
-			t.taskDesc[74] = '\0';
+			strncpy(t.taskDesc, argv[2], sizeof(t.taskDesc)-2);
+			t.taskDesc[sizeof(t.taskDesc) - 1] = '\0';
 
 			int returnCode = writeToFile(&t);
 
