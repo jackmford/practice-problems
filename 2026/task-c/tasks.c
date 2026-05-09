@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 			// idk if we even need this we can just display them in order
 			// status should always be 0
 			struct Task t = {0, 0};
-			strncpy(t.taskDesc, argv[2], sizeof(t.taskDesc)-2);
+			strncpy(t.taskDesc, argv[2], sizeof(t.taskDesc)-1);
 			t.taskDesc[sizeof(t.taskDesc) - 1] = '\0';
 
 			int returnCode = writeToFile(&t);
