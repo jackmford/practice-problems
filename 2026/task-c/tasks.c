@@ -17,13 +17,38 @@ struct Task {
 	char taskDesc[75];
 };
 
+int createFile() {
+	FILE *fptr;
+	fptr = fopen("tasks.txt", "a");
+	if (fptr != NULL) {
+		fclose(fptr);
+		return 0;
+	}
+
+	return 1;
+}
+
 int writeToFile(struct Task* t) {
 	FILE *fptr;
 	fptr = fopen("tasks.txt", "a");
 
 	if (fptr != NULL) {
-		fputs(t->taskDesc, fptr);
-		fputc('\n', fptr);
+		fprintf(fptr, "%d %s\n", t->taskNum, t->taskDesc);
+        	fclose(fptr);
+		return 0;
+	}
+
+	return 1;
+}
+
+int overwriteFile(struct Task* arr, int taskCount) {
+	FILE *fptr;
+	fptr = fopen("tasks.txt", "w");
+
+	if (fptr != NULL) {
+		for (int i = 0; i<taskCount; i++) {
+			fprintf(fptr, "%d %s\n", i+1, arr[i].taskDesc);
+		}
         	fclose(fptr);
 	}
 
@@ -35,13 +60,11 @@ int readFile(struct Task* arr) {
 	fptr = fopen("tasks.txt", "r");
 	int pos = 0;
 
-	struct Task t = {0, 0};
-	printf("Reading file...\n");
 	if (fptr != NULL) {
-		while (fgets(t.taskDesc, 75, fptr)) {
+		struct Task t = {0, 0};
+		while (fscanf(fptr, "%d %74[^\n]", &t.taskNum, t.taskDesc ) == 2) {
 			arr[pos] = t;
 			pos = pos+1;
-			struct Task t = {0, 0};
 		}
         	fclose(fptr);
 		return pos;
@@ -51,15 +74,36 @@ int readFile(struct Task* arr) {
 	}
 }
 
-int deleteTask () {
+int deleteTask (struct Task* arr, int taskCount, int taskToDelete) {
+	for (int i = 0; i<taskCount; i++) {
+		if (arr[i].taskNum == taskToDelete) {
+			for (int j = i; j < taskCount - 1; j++) {
+        			arr[j] = arr[j + 1];
+    			}
+			taskCount--;
+			int status = overwriteFile(arr, taskCount);
+			if (status == 0) {
+				printf("Task %d deleted..\n", taskToDelete);
+				return 0;
+			} else {
+				printf("Issue deleting task\n");
+				return 1;
+			}
+		}
+
+	}
+	printf("Task not found..\n");
 	return 0;
 }
 
 int main(int argc, char *argv[]) {
 	// arr is a ptr to a Task
-	// im making space for 5 Tasks with malloc
 	struct Task* arr = malloc(10 * sizeof(struct Task));
 	int pos = 0;
+	int createFlag = createFile();
+	if (createFlag != 0) {
+		exit(1);
+	}
 	int taskCount = readFile(arr);
 
 	if (argc > 1) {
@@ -67,8 +111,10 @@ int main(int argc, char *argv[]) {
 			// TODO: need to get the last written task num in list to auto add new one
 			// idk if we even need this we can just display them in order
 			// status should always be 0
-			struct Task t = {0, 0};
+			struct Task t = {taskCount+1, 0};
 			strncpy(t.taskDesc, argv[2], sizeof(t.taskDesc)-1);
+
+			// null terminate string no matter what
 			t.taskDesc[sizeof(t.taskDesc) - 1] = '\0';
 
 			writeToFile(&t);
@@ -76,11 +122,12 @@ int main(int argc, char *argv[]) {
 		}
 		else if (strcmp(argv[1], "list") == 0) {
 			for (int i=0; i<taskCount; i++) {
-				printf("Task num %d %d %s", arr[i].taskNum, arr[i].status, arr[i].taskDesc);
+				printf("Task num %d %d %s\n", arr[i].taskNum, arr[i].status, arr[i].taskDesc);
 			}
 		}
-		else if (strcmp(argv[1], "delete") == 0) {
-			deleteTask();
+		else if (strcmp(argv[1], "delete") == 0 && argc == 3) {
+			int taskToDelete = atoi(argv[2]);
+			deleteTask(arr, taskCount, taskToDelete);
 		}
 	}
 
