@@ -28,7 +28,7 @@ int createFile() {
 	return 1;
 }
 
-int writeToFile(struct Task* t) {
+int writeTaskToFile(struct Task* t) {
 	FILE *fptr;
 	fptr = fopen("tasks.txt", "a");
 
@@ -106,6 +106,8 @@ int main(int argc, char *argv[]) {
 	}
 	int taskCount = readFile(arr);
 
+	// TODO: task archive writer
+
 	if (argc > 1) {
 		if (strcmp(argv[1], "add") == 0 && argc == 3) {
 			// TODO: need to get the last written task num in list to auto add new one
@@ -117,12 +119,13 @@ int main(int argc, char *argv[]) {
 			// null terminate string no matter what
 			t.taskDesc[sizeof(t.taskDesc) - 1] = '\0';
 
-			writeToFile(&t);
+			writeTaskToFile(&t);
 			printf("Task num %d %d %s written to file\n", t.taskNum, t.status, t.taskDesc);
 		}
 		else if (strcmp(argv[1], "list") == 0) {
+			printf("### TASKS ###\n\n");
 			for (int i=0; i<taskCount; i++) {
-				printf("Task num %d %d %s\n", arr[i].taskNum, arr[i].status, arr[i].taskDesc);
+				printf("[%d] %s\n", arr[i].taskNum, arr[i].taskDesc);
 			}
 		}
 		else if (strcmp(argv[1], "delete") == 0 && argc == 3) {
