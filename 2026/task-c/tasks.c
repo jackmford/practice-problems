@@ -39,10 +39,7 @@ int readFile(struct Task* arr) {
 	printf("Reading file...\n");
 	if (fptr != NULL) {
 		while (fgets(t.taskDesc, 75, fptr)) {
-			//t.taskDesc[74] = '\0';
 			arr[pos] = t;
-			//printf("%s", t.taskDesc);
-
 			pos = pos+1;
 			struct Task t = {0, 0};
 		}
@@ -78,7 +75,6 @@ int main(int argc, char *argv[]) {
 			printf("Task num %d %d %s written to file\n", t.taskNum, t.status, t.taskDesc);
 		}
 		else if (strcmp(argv[1], "list") == 0) {
-			//int len = sizeof(arr) / sizeof(arr[0]);
 			for (int i=0; i<taskCount; i++) {
 				printf("Task num %d %d %s", arr[i].taskNum, arr[i].status, arr[i].taskDesc);
 			}
