@@ -107,12 +107,10 @@ int main(int argc, char *argv[]) {
 	int taskCount = readFile(arr);
 
 	// TODO: task archive writer
+	// - dynamic array
 
 	if (argc > 1) {
 		if (strcmp(argv[1], "add") == 0 && argc == 3) {
-			// TODO: need to get the last written task num in list to auto add new one
-			// idk if we even need this we can just display them in order
-			// status should always be 0
 			struct Task t = {taskCount+1, 0};
 			strncpy(t.taskDesc, argv[2], sizeof(t.taskDesc)-1);
 
