@@ -130,6 +130,9 @@ int main(int argc, char *argv[]) {
 			int taskToDelete = atoi(argv[2]);
 			deleteTask(arr, taskCount, taskToDelete);
 		}
+		else if (strcmp(argv[1], "clear") == 0 && argc == 2) {
+			overwriteFile(NULL, 0);
+		}
 	}
 
 	free(arr);
