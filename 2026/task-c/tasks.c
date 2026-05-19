@@ -13,7 +13,6 @@
 
 struct Task {
 	int taskNum;
-	int status;
 	char taskDesc[75];
 };
 
@@ -41,12 +40,14 @@ int writeTaskToFile(struct Task* t) {
 	return 1;
 }
 
-int overwriteFile(struct Task* arr, int taskCount) {
+int overwriteFile(struct Task* arr, int startingIndex, int taskCount) {
 	FILE *fptr;
 	fptr = fopen("tasks.txt", "w");
 
+	fseek(fptr, startingIndex*(sizeof(struct Task)), SEEK_SET);
+
 	if (fptr != NULL) {
-		for (int i = 0; i<taskCount; i++) {
+		for (int i = startingIndex; i<taskCount; i++) {
 			fprintf(fptr, "%d %s\n", i+1, arr[i].taskDesc);
 		}
         	fclose(fptr);
@@ -81,7 +82,8 @@ int deleteTask (struct Task* arr, int taskCount, int taskToDelete) {
         			arr[j] = arr[j + 1];
     			}
 			taskCount--;
-			int status = overwriteFile(arr, taskCount);
+			// TODO: this could be made better, only write from where the deletion was
+			int status = overwriteFile(arr, i, taskCount);
 			if (status == 0) {
 				printf("Task %d deleted..\n", taskToDelete);
 				return 0;
@@ -118,7 +120,7 @@ int main(int argc, char *argv[]) {
 			t.taskDesc[sizeof(t.taskDesc) - 1] = '\0';
 
 			writeTaskToFile(&t);
-			printf("Task num %d %d %s written to file\n", t.taskNum, t.status, t.taskDesc);
+			printf("Task num %d %s written to file\n", t.taskNum, t.taskDesc);
 		}
 		else if (strcmp(argv[1], "list") == 0) {
 			printf("### TASKS ###\n\n");
@@ -131,7 +133,7 @@ int main(int argc, char *argv[]) {
 			deleteTask(arr, taskCount, taskToDelete);
 		}
 		else if (strcmp(argv[1], "clear") == 0 && argc == 2) {
-			overwriteFile(NULL, 0);
+			overwriteFile(NULL, 0, 0);
 		}
 	}
 
