@@ -164,6 +164,7 @@ int main() {
 	hashmap_set(map, "jacknum2", &num);
 	hashmap_set(map, "jacknum3", &num);
 	hashmap_set(map, "jacknum4", &num);
+
 	hashmap_delete(map, "jacknum4");
 	printf("Map size: %zu\n", map->size);
 
@@ -174,6 +175,9 @@ int main() {
 	if (intpt != NULL){
 		printf("Retrieved %d from hashmap\n", *(int *)intpt);
 	}
+
+	hashmap_delete(map, "jacknum4");
+	printf("Map size: %zu\n", map->size);
 
 	//TODO implement delete
 	//TODO implement automatic resizing
