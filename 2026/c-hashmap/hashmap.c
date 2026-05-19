@@ -59,7 +59,7 @@ void hashmap_set(struct HashMap* map, const char* key, void* value) {
 
 	struct Entry* bucket = map->buckets[hash_key];
 
-	if (bucket == 0) {
+	if (bucket == NULL) {
         	// empty bucket, just place it directly
 		printf("Inserting %s at %zu\n", key, hash_key);
 		map->buckets[hash_key] = entry;
@@ -96,6 +96,32 @@ void* hashmap_get(struct HashMap* map, const char* key) {
 
 	printf("Key not found\n");
 	return NULL;
+}
+
+void hashmap_delete(struct HashMap* map, const char* key) {
+	size_t hash_key = hash(key, map->capacity);
+	struct Entry* entry = map->buckets[hash_key];
+	struct Entry* prev = NULL;
+
+	while (entry != NULL) {
+		if (strcmp(entry->key, key) == 0) {
+			if (prev == NULL) {
+				// found it right away at the head
+				map->buckets[hash_key] = entry->next;
+			} else {
+				// remove the current matching entry
+				prev->next = entry->next;
+			}
+			free(entry);
+			map->size--;
+			printf("Deleted key: %s\n", key);
+			return;
+		}
+		prev = entry;
+		entry = entry->next;
+	}
+
+	printf("Key not found\n");
 }
 
 
@@ -138,9 +164,19 @@ int main() {
 	hashmap_set(map, "jacknum2", &num);
 	hashmap_set(map, "jacknum3", &num);
 	hashmap_set(map, "jacknum4", &num);
+	hashmap_delete(map, "jacknum4");
 	printf("Map size: %zu\n", map->size);
 
+	num = 11;
+	hashmap_set(map, "jacknum4", &num);
+
+	intpt = hashmap_get(map, "jacknum4");
+	if (intpt != NULL){
+		printf("Retrieved %d from hashmap\n", *(int *)intpt);
+	}
+
 	//TODO implement delete
+	//TODO implement automatic resizing
 
 	free(map);
 }
