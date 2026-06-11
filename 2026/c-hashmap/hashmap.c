@@ -48,20 +48,23 @@ struct HashMap* hashmap_create(size_t capacity) {
 	return map;
 }
 
-void hashmap_resize(struct HashMap* map) {
+static int hashmap_resize(struct HashMap* map) {
 	// saving old entries
 	size_t oldCapacity = map->capacity;
 	struct Entry** oldBuckets = map->buckets;
 
 	// allocating new memory for new entries
 	// and assigning original buckets to new memory
+	struct Entry** newEntries = calloc(map->capacity*2, sizeof(struct Entry *));
+	if (newEntries == NULL) {
+		return 1;
+	}
 	map->capacity = map->capacity*2;
-	struct Entry** newEntries = calloc(map->capacity, sizeof(struct Entry *));
 	map->buckets = newEntries;
 
 	// copy the old buckets over
 	// walk linked lists
-	for (int i = 0; i < oldCapacity; i++) {
+	for (size_t i = 0; i < oldCapacity; i++) {
 		struct Entry* entry = oldBuckets[i];
 		while (entry != NULL) {
 			struct Entry* next = entry->next;
@@ -77,14 +80,22 @@ void hashmap_resize(struct HashMap* map) {
 
 	free(oldBuckets);
 	printf("New map capacity is %zu\n", map->capacity);
+	return 0;
 }
 
-void hashmap_set(struct HashMap* map, const char* key, void* value) {
-	if ((float)map->size / map->capacity > map->load_factor) {
-		hashmap_resize(map);
+int hashmap_set(struct HashMap* map, const char* key, void* value) {
+	if (map->size+1 / (float)map->capacity > map->load_factor) {
+		int status = hashmap_resize(map);
+		if (status != 0) {
+			return 1;
+		}
 	}
 	// Put the entry on the heap
 	struct Entry* entry = malloc(sizeof(struct Entry));
+	if (entry == NULL) {
+		return 1;
+	}
+
 	entry->key = key;
 	entry->value = value;
 	entry->next = NULL;
@@ -99,7 +110,7 @@ void hashmap_set(struct HashMap* map, const char* key, void* value) {
 		printf("Inserting %s at %zu\n", key, hash_key);
 		map->buckets[hash_key] = entry;
 		map->size++;
-		return;
+		return 0;
     	}
 		
 	while (bucket->next != NULL) {
@@ -108,7 +119,7 @@ void hashmap_set(struct HashMap* map, const char* key, void* value) {
 			printf("Updating %s at %zu\n", key, hash_key);
 			bucket->value = value;
 			free(entry);
-			return;
+			return 0;
 		}
 		bucket = bucket->next;
 	}
@@ -118,11 +129,12 @@ void hashmap_set(struct HashMap* map, const char* key, void* value) {
 		printf("Updating %s at %zu\n", key, hash_key);
 		bucket->value = value;
 		free(entry);
-		return;
+		return 0;
 	}
 
 	bucket->next = entry;
 	map->size++;
+	return 0;
 }
 
 void* hashmap_get(struct HashMap* map, const char* key) {
@@ -136,11 +148,10 @@ void* hashmap_get(struct HashMap* map, const char* key) {
 		entry = entry->next;
 	}
 
-	printf("Key not found\n");
 	return NULL;
 }
 
-void hashmap_delete(struct HashMap* map, const char* key) {
+int hashmap_delete(struct HashMap* map, const char* key) {
 	size_t hash_key = hash(key, map->capacity);
 	struct Entry* entry = map->buckets[hash_key];
 	struct Entry* prev = NULL;
@@ -157,64 +168,37 @@ void hashmap_delete(struct HashMap* map, const char* key) {
 			free(entry);
 			map->size--;
 			printf("Deleted key: %s\n", key);
-			return;
+			return 0;
 		}
 		prev = entry;
 		entry = entry->next;
 	}
 	printf("Key not found\n");
+	return 1;
 }
 
-
-int main() {
-	struct HashMap* map = hashmap_create(1);
+int hashmap_destroy(struct HashMap* map) {
 	if (map == NULL) {
-		printf("Allocation failed\n");
-		return 1;
+		return 0;
 	}
-	printf("Created map with capacity %zu\n", map->capacity);
-
-	char str[] = "Hi\0";
-	hashmap_set(map, "jack", str);
-
-	char str2[] = "Hi2\0";
-	hashmap_set(map, "jack", str2);
-
-	int num = 12;
-	hashmap_set(map, "jacknum", &num);
-
-	void* strpt = hashmap_get(map, "jack");
-	printf("Retrieved %s from hashmap\n", (char *)strpt);
-
-	void* intpt = hashmap_get(map, "jacknum");
-	printf("Retrieved %d from hashmap\n", *(int *)intpt);
-
-	strpt = hashmap_get(map, "jack");
-	printf("Retrieved %s from hashmap\n", (char *)strpt);
-
-	intpt = hashmap_get(map, "jacknum");
-	printf("Retrieved %d from hashmap\n", *(int *)intpt);
-
-	hashmap_set(map, "jacknum1", &num);
-	hashmap_set(map, "jacknum2", &num);
-	hashmap_set(map, "jacknum3", &num);
-	hashmap_set(map, "jacknum4", &num);
-
-	printf("Map items: %zu\n", map->size);
-	hashmap_delete(map, "jacknum4");
-	printf("Map items: %zu\n", map->size);
-
-	num = 11;
-	hashmap_set(map, "jacknum4", &num);
-	printf("Map items: %zu\n", map->size);
-
-	intpt = hashmap_get(map, "jacknum4");
-	if (intpt != NULL){
-		printf("Retrieved %d from hashmap\n", *(int *)intpt);
+	if (map->buckets == NULL) {
+		free(map);
+		return 0;
 	}
 
-	hashmap_delete(map, "jacknum4");
-	printf("Map items: %zu\n", map->size);
-
+	for (size_t i=0; i<map->capacity; i++) {
+		struct Entry* entry = map->buckets[i];
+		while (entry != NULL) {
+			struct Entry* next = entry->next;
+			free(entry);
+			entry = next;
+		}
+	}
+	free(map->buckets);
 	free(map);
+	return 0;
+}
+
+size_t hashmap_size(struct HashMap* map) {
+	return map->size;
 }
