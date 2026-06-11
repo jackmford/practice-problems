@@ -38,3 +38,26 @@
 - sendto() and recvfrom() are for SOCK_DGRAM (UDP) connections
 
 - you can still use send() and recv() with a datagram socket that you connect() to, the kernel will just remember the destination port/ip for you instead of having to pass it like in sendto() and recvfrom()
+
+- `getaddrinfo()` took over for having to get address info from `gethostbyname()` and configure a manual `struct sockaddr_in`.
+
+- file descriptors are just index numbers for processes/files that the kernel looks up in a table
+  - file descriptor table
+  - open file table (records mode the file is open in)
+  - inode table (describes actual underlying files on disk)
+- a process will pass the file descriptor to the kernel with a system call, the kernel uses the FD to then look up the open file
+- entries are put on to the open file table when sys calls are made to "open" them
+- linux just "treats everything like a file" to provide common interfaces for different I/O resources
+
+- for a socket for example -> socket() will give back a FD integer that points to an open file table entry -> to the socket "inode" -> to that socket's object that contains actual info about the networking for that socket
+
+when bytes have arrived from the network, they are sitting in the socket’s receive buffer. The kernel copies them into your program’s buf.
+
+So:
+
+network packet arrives
+-> network card/driver
+-> IP/TCP stack
+-> matching socket object
+-> receive buffer
+-> read() copies bytes to your program
